@@ -18,6 +18,7 @@ WorldNames = [
 MinimumPermissionLevel = {
 	'make': 2,
 	'list': 0,
+	'listall': 0,
 }
 ServerPath = './server'
 HelpMessage = '''
