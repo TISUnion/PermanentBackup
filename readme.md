@@ -27,4 +27,4 @@ PermanentBackup
 - TurnOffAutoSave
 - WorldNames
 
-具体修改方式同 [QuickBackupM](https://github.com/TISUnion/QuickBackupM#一些常量说明)
+具体修改方式同 QuickBackupM，详见[此处](https://github.com/TISUnion/QuickBackupM#一些常量说明)
