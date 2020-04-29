@@ -188,6 +188,9 @@ def on_info(server, info):
 
 def on_load(server, old):
 	server.add_help_message(Prefix, '创建永久备份')
+	global creating_backup
+	if hasattr(old, 'creating_backup') and type(old.creating_backup) == type(creating_backup):
+		creating_backup = old.creating_backup
 
 
 def on_unload(server):
