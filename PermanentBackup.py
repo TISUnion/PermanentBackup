@@ -8,9 +8,11 @@ import time
 import zipfile
 from threading import Lock
 
+'''================ 可修改常量开始 ================'''
 Prefix = '!!backup'
 BackupPath = 'perma_backup'
 TurnOffAutoSave = True
+IgnoreSessionLock = True
 WorldNames = [
 	'world',
 ]
@@ -21,6 +23,8 @@ MinimumPermissionLevel = {
 	'listall': 0,
 }
 ServerPath = './server'
+'''================ 可修改常量结束 ================'''
+
 HelpMessage = '''
 §7------§rMCDR Permanent Backup§7------§r
 一个创建永久备份的插件
@@ -83,7 +87,7 @@ def create_backup(server, info, comment=''):
 		# save world
 		if TurnOffAutoSave:
 			server.execute('save-off')
-		global game_saved
+		global game_saved, IgnoreSessionLock
 		game_saved = False
 		server.execute('save-all')
 		while True:
@@ -95,9 +99,11 @@ def create_backup(server, info, comment=''):
 				return
 
 		# copy worlds
+		def filter_ignore(path, files):
+			return [file for file in files if file == 'session.lock' and IgnoreSessionLock]
 		touch_backup_folder()
 		for world in WorldNames:
-			shutil.copytree(os.path.join(ServerPath, world), os.path.join(BackupPath, world))
+			shutil.copytree(os.path.join(ServerPath, world), os.path.join(BackupPath, world), ignore=filter_ignore)
 
 		# find file name
 		file_name_raw = os.path.join(BackupPath, time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime()))
