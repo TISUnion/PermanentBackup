@@ -77,6 +77,7 @@ def format_file_name(file_name):
 def create_backup(server, info, comment=''):
 	global creating_backup
 	acquired = creating_backup.acquire(blocking=False)
+	auto_save_on = True
 	if not acquired:
 		info_message(server, info, '§c正在备份中，请不要重复输入§r')
 		return
@@ -87,6 +88,7 @@ def create_backup(server, info, comment=''):
 		# save world
 		if TurnOffAutoSave:
 			server.execute('save-off')
+			auto_save_on = False
 		global game_saved, IgnoreSessionLock
 		game_saved = False
 		server.execute('save-all')
@@ -104,6 +106,9 @@ def create_backup(server, info, comment=''):
 		touch_backup_folder()
 		for world in WorldNames:
 			shutil.copytree(os.path.join(ServerPath, world), os.path.join(BackupPath, world), ignore=filter_ignore)
+		if not auto_save_on:
+			server.execute('save-on')
+			auto_save_on = True
 
 		# find file name
 		file_name_raw = os.path.join(BackupPath, time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime()))
@@ -132,7 +137,7 @@ def create_backup(server, info, comment=''):
 		info_message(server, info, '备份§a失败§r，错误代码{}'.format(e), broadcast=True)
 	finally:
 		creating_backup.release()
-		if TurnOffAutoSave:
+		if TurnOffAutoSave and not auto_save_on:
 			server.execute('save-on')
 
 
