@@ -1,6 +1,5 @@
 # coding: utf8
 import collections
-import copy
 import json
 import os
 import shutil
@@ -8,23 +7,50 @@ import time
 import zipfile
 from threading import Lock
 
-'''================ 可修改常量开始 ================'''
-Prefix = '!!backup'
-BackupPath = 'perma_backup'
-TurnOffAutoSave = True
-IgnoreSessionLock = True
-WorldNames = [
-	'world',
-]
-# 0:guest 1:user 2:helper 3:admin
-MinimumPermissionLevel = {
-	'make': 2,
-	'list': 0,
-	'listall': 0,
-}
-ServerPath = './server'
-'''================ 可修改常量结束 ================'''
+from mcdreforged.api.all import *
 
+PLUGIN_METADATA = {
+	'id': 'permanent_backup',
+	'version': '1.0.0',
+	'name': 'Permanent Backup',
+	'description': 'A plugin for creating permanent compressed world backups',
+	'author': [
+		'Fallen_Breath'
+	],
+	'link': 'https://github.com/MCDReforged/PermanentBackup',
+	'dependencies': {
+		'mcdreforged': '>=1.0.0-alpha.7',
+	}
+}
+
+# 默认配置文件
+config = {
+	'size_display': True,
+	'turn_off_auto_save': True,
+	'ignore_session_lock': True,
+	'backup_path': './perma_backup',
+	'server_path': './server',
+	'world_names': [
+		'world',
+	],
+	# 0:guest 1:user 2:helper 3:admin
+	'minimum_permission_level': {
+		'make': 2,
+		'list': 0,
+		'listall': 2
+	},
+	'slots': [
+		{'delete_protection': 0},  # 无保护
+		{'delete_protection': 0},  # 无保护
+		{'delete_protection': 0},  # 无保护
+		{'delete_protection': 3 * 60 * 60},  # 三小时
+		{'delete_protection': 3 * 24 * 60 * 60},  # 三天
+	]
+}
+default_config = config.copy()
+
+Prefix = '!!backup'
+CONFIG_FILE = os.path.join('config', 'PermanentBackup.json')
 HelpMessage = '''
 §7------§rMCDR Permanent Backup§7------§r
 一个创建永久备份的插件
@@ -46,18 +72,18 @@ mcdr_root/
 '''
 
 
-def info_message(server, info, msg, broadcast=False):
+def info_message(source: CommandSource, msg: str, broadcast=False):
 	for line in msg.splitlines():
 		text = '[Permanent Backup] ' + line
-		if broadcast and info.is_player:
-			server.say(text)
+		if broadcast and source.is_player:
+			source.get_server().broadcast(text)
 		else:
-			server.reply(info, text)
+			source.reply(text)
 
 
 def touch_backup_folder():
-	if not os.path.isdir(BackupPath):
-		os.makedirs(BackupPath)
+	if not os.path.isdir(config['backup_path']):
+		os.makedirs(config['backup_path'])
 
 
 def add_file(zipf, path, arcpath):
@@ -74,44 +100,46 @@ def format_file_name(file_name):
 	return file_name
 
 
-def create_backup(server, info, comment=''):
+@new_thread('Perma-Backup')
+def create_backup(source: CommandSource, context: dict):
+	comment = context.get('cmt', None)
 	global creating_backup
 	acquired = creating_backup.acquire(blocking=False)
 	auto_save_on = True
 	if not acquired:
-		info_message(server, info, '§c正在备份中，请不要重复输入§r')
+		info_message(source, '§c正在备份中，请不要重复输入§r')
 		return
 	try:
-		info_message(server, info, '备份中...请稍等', broadcast=True)
+		info_message(source, '备份中...请稍等', broadcast=True)
 		start_time = time.time()
 
 		# save world
-		if TurnOffAutoSave:
-			server.execute('save-off')
+		if config['turn_off_auto_save']:
+			source.get_server().execute('save-off')
 			auto_save_on = False
-		global game_saved, IgnoreSessionLock
+		global game_saved
 		game_saved = False
-		server.execute('save-all flush')
+		source.get_server().execute('save-all flush')
 		while True:
 			time.sleep(0.01)
 			if game_saved:
 				break
 			if plugin_unloaded:
-				server.reply(info, '§c插件卸载，备份中断！§r', broadcast=True)
+				source.reply('§c插件卸载，备份中断！§r', broadcast=True)
 				return
 
 		# copy worlds
 		def filter_ignore(path, files):
-			return [file for file in files if file == 'session.lock' and IgnoreSessionLock]
+			return [file for file in files if file == 'session.lock' and config['ignore_session_lock']]
 		touch_backup_folder()
-		for world in WorldNames:
-			shutil.copytree(os.path.join(ServerPath, world), os.path.join(BackupPath, world), ignore=filter_ignore)
+		for world in config['world_names']:
+			shutil.copytree(os.path.join(config['server_path'], world), os.path.join(config['backup_path'], world), ignore=filter_ignore)
 		if not auto_save_on:
-			server.execute('save-on')
+			source.get_server().execute('save-on')
 			auto_save_on = True
 
 		# find file name
-		file_name_raw = os.path.join(BackupPath, time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime()))
+		file_name_raw = os.path.join(config['backup_path'], time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime()))
 		if comment != '':
 			file_name_raw += '_' + format_file_name(comment)
 		zip_file_name = file_name_raw
@@ -122,38 +150,39 @@ def create_backup(server, info, comment=''):
 		zip_file_name += '.zip'
 
 		# zipping worlds
-		info_message(server, info, '创建压缩文件§e{}§r中...'.format(os.path.basename(zip_file_name)), broadcast=True)
+		info_message(source, '创建压缩文件§e{}§r中...'.format(os.path.basename(zip_file_name)), broadcast=True)
 		zipf = zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED)
-		for world in WorldNames:
-			add_file(zipf, os.path.join(BackupPath, world), world)
+		for world in config['world_names']:
+			add_file(zipf, os.path.join(config['backup_path'], world), world)
 		zipf.close()
 
 		# cleaning worlds
-		for world in WorldNames:
-			shutil.rmtree(os.path.join(BackupPath, world))
+		for world in config['world_names']:
+			shutil.rmtree(os.path.join(config['backup_path'], world))
 
-		info_message(server, info, '备份§a完成§r，耗时{}秒'.format(round(time.time() - start_time, 1)), broadcast=True)
+		info_message(source, '备份§a完成§r，耗时{}秒'.format(round(time.time() - start_time, 1)), broadcast=True)
 	except Exception as e:
-		info_message(server, info, '备份§a失败§r，错误代码{}'.format(e), broadcast=True)
+		info_message(source, '备份§a失败§r，错误代码{}'.format(e), broadcast=True)
 	finally:
 		creating_backup.release()
-		if TurnOffAutoSave and not auto_save_on:
-			server.execute('save-on')
+		if config['turn_off_auto_save'] and not auto_save_on:
+			source.get_server().execute('save-on')
 
 
-def list_backup(server, info, amount=10):
+def list_backup(source: CommandSource, context: dict, *, amount=10):
+	amount = context.get('amount', amount)
 	touch_backup_folder()
 	arr = []
-	for name in os.listdir(BackupPath):
-		file_name = os.path.join(BackupPath, name)
+	for name in os.listdir(config['backup_path']):
+		file_name = os.path.join(config['backup_path'], name)
 		if os.path.isfile(file_name) and file_name.endswith('.zip'):
 			arr.append(collections.namedtuple('T', 'name stat')(os.path.basename(file_name)[: -len('.zip')], os.stat(file_name)))
 	arr.sort(key=lambda x: x.stat.st_mtime, reverse=True)
-	info_message(server, info, '共有§6{}§r个备份'.format(len(arr)))
+	info_message(source, '共有§6{}§r个备份'.format(len(arr)))
 	if amount == -1:
 		amount = len(arr)
 	for i in range(min(amount, len(arr))):
-		server.reply(info, '§7{}.§r §e{} §r{}MB'.format(i + 1, arr[i].name, round(arr[i].stat.st_size / 2 ** 20, 1)))
+		source.reply('§7{}.§r §e{} §r{}MB'.format(i + 1, arr[i].name, round(arr[i].stat.st_size / 2 ** 20, 1)))
 
 
 def on_info(server, info):
@@ -161,49 +190,71 @@ def on_info(server, info):
 		if info.content == 'Saved the game':
 			global game_saved
 			game_saved = True
-		return
-
-	command = info.content.split()
-	cmd_len = len(command)
-	if cmd_len == 0 or command[0] != Prefix:
-		return
-
-	# MCDR permission check
-	global MinimumPermissionLevel
-	if cmd_len > 1 and command[1] in MinimumPermissionLevel.keys():
-		if server.get_permission_level(info) < MinimumPermissionLevel[command[1]]:
-			server.reply(info, '§c权限不足！§r')
-			return
-
-	# !!backup
-	if cmd_len == 1:
-		server.reply(info, HelpMessage)
-		return
-
-	# !!backup make [<comment>]
-	elif cmd_len >= 2 and command[1] == 'make':
-		comment = info.content.replace('{} make'.format(Prefix), '', 1).lstrip(' ') if cmd_len > 2 else ''
-		create_backup(server, info, comment)
-
-	# !!backup list
-	elif cmd_len == 2 and command[1] == 'list':
-		list_backup(server, info, 10)
-
-	# !!backup listall
-	elif cmd_len == 2 and command[1] == 'listall':
-		list_backup(server, info, -1)
-
-	else:
-		server.reply(info, '参数错误！请输入§7{}§r以获取插件帮助'.format(Prefix))
 
 
-def on_load(server, old):
-	server.add_help_message(Prefix, '创建永久备份')
+def on_load(server: ServerInterface, old):
 	global creating_backup
 	if hasattr(old, 'creating_backup') and type(old.creating_backup) == type(creating_backup):
 		creating_backup = old.creating_backup
+	server.register_help_message(Prefix, '创建永久备份')
+	load_config(server)
+	register_command(server)
+
+
+def on_remove(server):
+	global plugin_unloaded
+	plugin_unloaded = True
 
 
 def on_unload(server):
 	global plugin_unloaded
 	plugin_unloaded = True
+
+
+def on_mcdr_stop(server: ServerInterface):
+	if creating_backup.locked():
+		server.logger.info('Waiting for up to 60s for permanent backup to complete')
+		if creating_backup.acquire(timeout=60):
+			creating_backup.release()
+
+
+def load_config(server: ServerInterface):
+	global config
+	try:
+		config = {}
+		with open(CONFIG_FILE) as file:
+			js = json.load(file)
+		for key in default_config.keys():
+			config[key] = js[key]
+		server.logger.info('Config file loaded')
+	except:
+		config = default_config.copy()
+		server.logger.info('Fail to read config file, using default value')
+		with open(CONFIG_FILE, 'w') as file:
+			json.dump(config, file, indent=4)
+
+
+def register_command(server: ServerInterface):
+	def permed_literal(literal: str):
+		lvl = config['minimum_permission_level'].get(literal, 0)
+		return Literal(literal).requires(lambda src: src.has_permission(lvl), failure_message_getter=lambda: '§c权限不足！§r')
+
+	server.register_command(
+		Literal(Prefix).
+		runs(lambda src: src.reply(HelpMessage)).
+		on_error(UnknownCommand, lambda src: src.reply('参数错误！请输入§7{}§r以获取插件帮助'.format(Prefix)), handled=True).
+		then(
+			permed_literal('make').
+			runs(create_backup).
+			then(GreedyText('cmt').runs(create_backup))
+		).
+		then(
+			permed_literal('list').
+			runs(list_backup).
+			then(Integer('amount').runs(list_backup))
+		).
+		then(
+			permed_literal('listall').
+			runs(lambda src: list_backup(src, {}, amount=-1))
+		)
+	)
