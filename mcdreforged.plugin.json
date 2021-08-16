@@ -1,0 +1,16 @@
+{
+	"id": "permanent_backup",
+	"version": "1.0.1",
+	"name": "Permanent Backup",
+	"description": "A plugin for creating permanent compressed world backups",
+	"author": [
+		"Fallen_Breath"
+	],
+	"link": "https://github.com/MCDReforged/PermanentBackup",
+	"dependencies": {
+		"mcdreforged": ">=2.0.0-"
+	},
+	"resources": [
+		"LICENSE"
+	]
+}
