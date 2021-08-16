@@ -2,7 +2,10 @@
 	"id": "permanent_backup",
 	"version": "1.0.1",
 	"name": "Permanent Backup",
-	"description": "A plugin for creating permanent compressed world backups",
+	"description": {
+		"en_us": "A plugin for creating permanent zip world backups",
+		"zh_cn": "创建永久的用 zip 压缩的备份"
+	},
 	"author": [
 		"Fallen_Breath"
 	],
