@@ -129,7 +129,7 @@ def create_backup(source: CommandSource, context: dict):
 
 		# find file name
 		file_name_raw = os.path.join(config.backup_path, time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime()))
-		if comment != '':
+		if comment is not None:
 			file_name_raw += '_' + format_file_name(comment)
 		zip_file_name = file_name_raw
 		counter = 0
