@@ -122,7 +122,10 @@ def create_backup(source: CommandSource, context: dict):
 			return [file for file in files if file == 'session.lock' and config.ignore_session_lock]
 		touch_backup_folder()
 		for world in config.world_names:
-			shutil.copytree(os.path.join(config.server_path, world), os.path.join(config.backup_path, world), ignore=filter_ignore)
+			target_path = os.path.join(config.backup_path, world)
+			if os.path.isdir(target_path):
+				shutil.rmtree(target_path)
+			shutil.copytree(os.path.join(config.server_path, world), target_path, ignore=filter_ignore)
 		if not auto_save_on:
 			source.get_server().execute('save-on')
 			auto_save_on = True
@@ -152,6 +155,7 @@ def create_backup(source: CommandSource, context: dict):
 		info_message(source, '备份§a完成§r，耗时{}秒'.format(round(time.time() - start_time, 1)), broadcast=True)
 	except Exception as e:
 		info_message(source, '备份§a失败§r，错误代码{}'.format(e), broadcast=True)
+		source.get_server().logger.exception('创建备份失败')
 	finally:
 		creating_backup.release()
 		if config.turn_off_auto_save and not auto_save_on:
