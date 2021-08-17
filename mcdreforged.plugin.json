@@ -1,6 +1,6 @@
 {
 	"id": "permanent_backup",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"name": "Permanent Backup",
 	"description": {
 		"en_us": "A plugin for creating permanent zip world backups",
