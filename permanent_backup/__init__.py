@@ -9,12 +9,7 @@ from typing import List, Dict
 from mcdreforged.api.all import *
 
 
-class SlotInfo(Serializable):
-	delete_protection: int = 0
-
-
 class Configure(Serializable):
-	size_display: bool = True
 	turn_off_auto_save: bool = True
 	ignore_session_lock: bool = True
 	backup_path: str = './perma_backup'
@@ -28,13 +23,6 @@ class Configure(Serializable):
 		'list': 0,
 		'listall': 2
 	}
-	slots: List[SlotInfo] = [
-		SlotInfo(delete_protection=0),  # 无保护
-		SlotInfo(delete_protection=0),  # 无保护
-		SlotInfo(delete_protection=0),  # 无保护
-		SlotInfo(delete_protection=3 * 60 * 60),  # 三小时
-		SlotInfo(delete_protection=3 * 24 * 60 * 60),  # 三天
-	]
 
 
 config: Configure
