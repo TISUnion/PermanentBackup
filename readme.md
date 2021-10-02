@@ -18,13 +18,27 @@ PermanentBackup
 
 `!!backup listall` 显示所有备份的信息
 
-## 常量
+## 配置文件
 
-可修改的插件中的一些常量有：
+配置文件为 `config/PermanentBackup.json`
 
-- Prefix
-- BackupPath
-- TurnOffAutoSave
-- WorldNames
+具体修改方式类似 [QuickBackupM](https://github.com/TISUnion/QuickBackupM)
 
-具体修改方式同 QuickBackupM，详见[此处](https://github.com/TISUnion/QuickBackupM#一些常量说明)
+默认配置文件：
+
+```json5
+{
+    "turn_off_auto_save": true,   // 备份时是否关闭 autosave
+    "ignore_session_lock": true,  // 是否忽略session.lock
+    "backup_path": "./perma_backup",  // 备份文件夹路径
+    "server_path": "./server",  //  服务端所在路径
+    "world_names": [  // 存档文件名列表。bukkit系服务端使用多个文件夹储存不同的维度
+        "world"
+    ],
+    "minimum_permission_level": {  // 指令权限需求
+        "make": 2,
+        "list": 0,
+        "listall": 2
+    }
+}
+```
